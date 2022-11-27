@@ -1,5 +1,6 @@
 /* global describe, beforeAll, beforeEach, it, expect */
 const request = require("supertest");
+const TestUtils = require("../helpers/test-utils");
 
 describe("collections", function () {
   let testUser;
@@ -12,27 +13,27 @@ describe("collections", function () {
     { id: "https://ignore.com/sue", inbox: "https://ignore.com/sue/in" },
   ];
   beforeAll(async function () {
-    const init = await global.initApex();
+    const init = await TestUtils.initApex();
     testUser = init.testUser;
     app = init.app;
     apex = init.apex;
     client = init.client;
     app.use((req, res, next) => {
-      res.locals.apex.authorized = true
-      next()
-    })
-    app.get('/followers/:actor', apex.net.followers.get)
-    app.get('/following/:actor', apex.net.following.get)
-    app.get('/liked/:actor', apex.net.liked.get)
-    app.get('/u/:actor/blocked', apex.net.blocked.get)
-    app.get('/u/:actor/rejected', apex.net.rejected.get)
-    app.get('/u/:actor/rejections', apex.net.rejections.get)
-    app.get('/s/:id/shares', apex.net.shares.get)
-    app.get('/s/:id/likes', apex.net.likes.get)
-    app.get('/u/:actor/c/:id', apex.net.collections.get)
-  })
+      res.locals.apex.authorized = true;
+      next();
+    });
+    app.get("/followers/:actor", apex.net.followers.get);
+    app.get("/following/:actor", apex.net.following.get);
+    app.get("/liked/:actor", apex.net.liked.get);
+    app.get("/u/:actor/blocked", apex.net.blocked.get);
+    app.get("/u/:actor/rejected", apex.net.rejected.get);
+    app.get("/u/:actor/rejections", apex.net.rejections.get);
+    app.get("/s/:id/shares", apex.net.shares.get);
+    app.get("/s/:id/likes", apex.net.likes.get);
+    app.get("/u/:actor/c/:id", apex.net.collections.get);
+  });
   beforeEach(async function () {
-    await global.resetDb(apex, client, testUser);
+    await TestUtils.resetDb(apex, client, testUser);
     for (const actor of actors) {
       await apex.store.saveObject(actor);
     }
@@ -268,7 +269,11 @@ describe("collections", function () {
             .get(`${act.id}/shares?page=true`.replace("https://localhost", ""))
             .set("Accept", "application/activity+json")
             .expect(200);
-          const standard = await global.toExternalJSONLD(apex, announce, true);
+          const standard = await TestUtils.toExternalJSONLD(
+            apex,
+            announce,
+            true
+          );
           standard.actor = actors.find((act) => act.id === announce.actor[0]);
           expect(res.body.orderedItems).toEqual([standard]);
         } catch (e) {
@@ -320,20 +325,13 @@ describe("collections", function () {
         );
         await apex.store.saveActivity(act);
         await apex.store.saveActivity(like);
-        try {
-          request(app)
-            .get(`${act.id}/likes?page=true`.replace("https://localhost", ""))
-            .set("Accept", "application/activity+json")
-            .expect(200)
-            .end(async function (err, res) {
-              const standard = await global.toExternalJSONLD(apex, like, true);
-              standard.actor = actors.find((act) => act.id === like.actor[0]);
-              expect(res.body.orderedItems).toEqual([standard]);
-              throw err;
-            });
-        } catch (e) {
-          throw e;
-        }
+        const res = await request(app)
+          .get(`${act.id}/likes?page=true`.replace("https://localhost", ""))
+          .set("Accept", "application/activity+json")
+          .expect(200);
+        const standard = await TestUtils.toExternalJSONLD(apex, like, true);
+        standard.actor = actors.find((act) => act.id === like.actor[0]);
+        expect(res.body.orderedItems).toEqual([standard]);
       });
     });
   });
@@ -353,7 +351,7 @@ describe("collections", function () {
         }
       );
       // convert to output format for test standard
-      const actOut = await global.toExternalJSONLD(
+      const actOut = await TestUtils.toExternalJSONLD(
         apex,
         apex.mergeJSONLD(act, { actor: [testUser] }),
         true
@@ -442,59 +440,68 @@ describe("collections", function () {
       for (const follow of follows) {
         await apex.store.saveActivity(follow);
       }
-      const rejected = await apex.getRejected(testUser, Infinity, true)
-      expect(rejected.orderedItems).toEqual(follows.map(a => a.id).reverse())
-    })
-    it('blocked c2s endpoint returns collection', async function (done) {
+      const rejected = await apex.getRejected(testUser, Infinity, true);
+      expect(rejected.orderedItems).toEqual(follows.map((a) => a.id).reverse());
+    });
+    it("blocked c2s endpoint returns collection", async function (done) {
       request(app)
-        .get('/u/test/blocked')
-        .set('Accept', 'application/activity+json')
+        .get("/u/test/blocked")
+        .set("Accept", "application/activity+json")
         .expect(200)
         .end(function (err, res) {
           const standard = {
-            '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1'],
-            id: 'https://localhost/u/test/blocked',
-            type: 'OrderedCollection',
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://w3id.org/security/v1",
+            ],
+            id: "https://localhost/u/test/blocked",
+            type: "OrderedCollection",
             totalItems: 0,
-            first: 'https://localhost/u/test/blocked?page=true'
-          }
-          expect(res.body).toEqual(standard)
-          done(err)
-        })
-    })
-    it('rejected c2s endpoint returns collection', async function (done) {
+            first: "https://localhost/u/test/blocked?page=true",
+          };
+          expect(res.body).toEqual(standard);
+          done(err);
+        });
+    });
+    it("rejected c2s endpoint returns collection", async function (done) {
       request(app)
-        .get('/u/test/rejected')
-        .set('Accept', 'application/activity+json')
+        .get("/u/test/rejected")
+        .set("Accept", "application/activity+json")
         .expect(200)
         .end(function (err, res) {
           const standard = {
-            '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1'],
-            id: 'https://localhost/u/test/rejected',
-            type: 'OrderedCollection',
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://w3id.org/security/v1",
+            ],
+            id: "https://localhost/u/test/rejected",
+            type: "OrderedCollection",
             totalItems: 0,
-            first: 'https://localhost/u/test/rejected?page=true'
-          }
-          expect(res.body).toEqual(standard)
-          done(err)
-        })
-    })
-    it('rejections c2s endpoint returns collection', async function (done) {
+            first: "https://localhost/u/test/rejected?page=true",
+          };
+          expect(res.body).toEqual(standard);
+          done(err);
+        });
+    });
+    it("rejections c2s endpoint returns collection", async function (done) {
       request(app)
-        .get('/u/test/rejections')
-        .set('Accept', 'application/activity+json')
+        .get("/u/test/rejections")
+        .set("Accept", "application/activity+json")
         .expect(200)
         .end(function (err, res) {
           const standard = {
-            '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1'],
-            id: 'https://localhost/u/test/rejections',
-            type: 'OrderedCollection',
+            "@context": [
+              "https://www.w3.org/ns/activitystreams",
+              "https://w3id.org/security/v1",
+            ],
+            id: "https://localhost/u/test/rejections",
+            type: "OrderedCollection",
             totalItems: 0,
-            first: 'https://localhost/u/test/rejections?page=true'
-          }
-          expect(res.body).toEqual(standard)
-          done(err)
-        })
-    })
-  })
-})
+            first: "https://localhost/u/test/rejections?page=true",
+          };
+          expect(res.body).toEqual(standard);
+          done(err);
+        });
+    });
+  });
+});

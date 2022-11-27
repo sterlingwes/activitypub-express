@@ -8,7 +8,7 @@
     "npm": ">=7"
   },
   "scripts": {
-    "test": "jasmine",
+    "test": "jest --detectOpenHandles",
     "format": "prettier --write net/ pub/ spec/ store/ vocab/",
     "coverage": "nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
@@ -30,6 +30,7 @@
   },
   "homepage": "https://github.com/wmurphyrd/activitypub-express#readme",
   "dependencies": {
+    "debug": "^4.3.4",
     "deepmerge": "^4.2.2",
     "express": "^4.18.0",
     "http-signature": "git+https://git@github.com/wmurphyrd/node-http-signature.git#9c02eeb",
@@ -45,6 +46,7 @@
     "coveralls": "^3.1.1",
     "jasmine": "^3.99.0",
     "jasmine-spec-reporter": "^4.2.1",
+    "jest": "^28.1.3",
     "nock": "^13.2.4",
     "nyc": "^15.1.0",
     "prettier": "^2.7.1",
